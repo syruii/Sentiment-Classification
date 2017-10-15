@@ -30,14 +30,10 @@ def load_data(glove_dict):
     for pos_file in glob.glob("./data2/pos/*.txt"):
         data_list.append(process_review(pos_file, glove_dict))
         i = i + 1
-        if (i % 1000 == 0):
-            print("Processed " + str(i) + " reviews.")
     i = 0
     for neg_file in glob.glob("./data2/neg/*.txt"):
         data_list.append(process_review(neg_file, glove_dict))
         i = i + 1
-        if (i % 1000 == 0):
-            print("Processed " + str(i) + " reviews.")
     data = np.array(data_list)
     return data
 
@@ -79,12 +75,18 @@ def load_glove_embeddings():
         tokens = line.split(' ')
         # first token is the "word" followed by the vector
         word_index_dict[tokens[0]] = word_num
-        em_list.append(np.array([np.float32(i) for i in tokens[1:]]))
+        em_list.append(np.array(tokens[1:]))
         word_num = word_num + 1
     embeddings = np.array(em_list)
     #if you are running on the CSE machines, you can load the glove data from here
     #data = open("/home/cs9444/public_html/17s2/hw2/glove.6B.50d.txt",'r',encoding="utf-8")
-    return tf.cast(embeddings, tf.float32), word_index_dict
+    return embeddings.astype(np.float32), word_index_dict
+
+def lstm_cell(dropout_keep_prob):
+    lstmCell = tf.contrib.rnn.BasicLSTMCell(13)
+    lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=dropout_keep_prob)
+    return lstmCell
+
 
 
 def define_graph(glove_embeddings_arr):
@@ -105,13 +107,13 @@ def define_graph(glove_embeddings_arr):
     input_data = tf.placeholder(tf.int32, [batch_size, 40]) #yep
     data = tf.Variable(tf.zeros([batch_size, 40, 50]), dtype=tf.float32)
     data = tf.nn.embedding_lookup(glove_embeddings_arr, input_data)
-    lstmCell = tf.contrib.rnn.BasicLSTMCell(15)
-    lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=dropout_keep_prob)
-    value, _ = tf.nn.dynamic_rnn(lstmCell, data, dtype=tf.float32)
+    stacked_lstm = tf.contrib.rnn.MultiRNNCell(
+        [lstm_cell(dropout_keep_prob) for _ in range(3)])
+    value, state = tf.nn.dynamic_rnn(stacked_lstm, data, dtype=tf.float32)
 
 
-    weight = tf.Variable(tf.truncated_normal([15, 2]))
-    bias = tf.Variable(tf.constant(0.1, shape=[2]))
+    weight = tf.Variable(tf.truncated_normal([13, 2]))
+    bias = tf.Variable(tf.constant(0.2, shape=[2]))
     value = tf.transpose(value, [1, 0, 2])
     last = tf.gather(value, int(value.get_shape()[0]) - 1)
     prediction = (tf.matmul(last, weight) + bias)
