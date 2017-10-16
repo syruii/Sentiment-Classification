@@ -83,8 +83,8 @@ def load_glove_embeddings():
     return embeddings.astype(np.float32), word_index_dict
 
 def lstm_cell(dropout_keep_prob):
-    lstmCell = tf.contrib.rnn.BasicLSTMCell(13)
-    lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell)#, output_keep_prob=dropout_keep_prob)
+    lstmCell = tf.contrib.rnn.BasicLSTMCell(30)
+    lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=dropout_keep_prob)
     return lstmCell
 
 
@@ -102,9 +102,11 @@ def define_graph(glove_embeddings_arr):
 
     RETURN: input placeholder, labels placeholder, dropout_keep_prob, optimizer, accuracy and loss
     tensors"""
+    # graph based on LSTM sentiment classification tutorial on Oreilly
+    # tried stacked LSTMs but arguably worse results on test set.
     dropout_keep_prob = tf.placeholder_with_default(1.0, shape=())
-    labels = tf.placeholder(tf.float32, [batch_size, 2]); #yep
-    input_data = tf.placeholder(tf.int32, [batch_size, 40]) #yep
+    labels = tf.placeholder(tf.float32, [batch_size, 2], name="labels"); #yep
+    input_data = tf.placeholder(tf.int32, [batch_size, 40], name="input_data") #yep
     data = tf.Variable(tf.zeros([batch_size, 40, 50]), dtype=tf.float32)
     data = tf.nn.embedding_lookup(glove_embeddings_arr, input_data)
     #stacked_lstm = tf.contrib.rnn.MultiRNNCell(
@@ -112,16 +114,16 @@ def define_graph(glove_embeddings_arr):
     value, state = tf.nn.dynamic_rnn(lstm_cell(dropout_keep_prob), data, dtype=tf.float32)
 
 
-    weight = tf.Variable(tf.truncated_normal([13, 2]))
+    weight = tf.Variable(tf.truncated_normal([30, 2]))
     bias = tf.Variable(tf.constant(0.2, shape=[2]))
     value = tf.transpose(value, [1, 0, 2])
     last = tf.gather(value, int(value.get_shape()[0]) - 1)
     prediction = (tf.matmul(last, weight) + bias)
 
-    correctPred = tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1))
-    accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float32))
+    correctPred = tf.cast(tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1)), tf.float32)
+    accuracy = tf.reduce_mean(correctPred, name="accuracy")
 
-    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=labels))
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=labels), name="loss")
     optimizer = tf.train.AdamOptimizer().minimize(loss)
 
     return input_data, labels, dropout_keep_prob, optimizer, accuracy, loss
