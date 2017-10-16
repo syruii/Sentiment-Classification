@@ -102,6 +102,8 @@ def define_graph(glove_embeddings_arr):
 
     RETURN: input placeholder, labels placeholder, dropout_keep_prob, optimizer, accuracy and loss
     tensors"""
+    # graph based on LSTM sentiment classification tutorial on Oreilly
+    # tried stacked LSTMs but arguably worse results on test set.
     dropout_keep_prob = tf.placeholder_with_default(1.0, shape=())
     labels = tf.placeholder(tf.float32, [batch_size, 2]); #yep
     input_data = tf.placeholder(tf.int32, [batch_size, 40]) #yep
@@ -118,8 +120,8 @@ def define_graph(glove_embeddings_arr):
     last = tf.gather(value, int(value.get_shape()[0]) - 1)
     prediction = (tf.matmul(last, weight) + bias)
 
-    correctPred = tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1))
-    accuracy = tf.reduce_mean(tf.cast(correctPred, tf.float32))
+    correctPred = tf.cast(tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1)), tf.float32)
+    accuracy = tf.reduce_mean(correctPred, name="accuracy")
 
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=labels))
     optimizer = tf.train.AdamOptimizer().minimize(loss)
