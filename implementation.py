@@ -84,7 +84,7 @@ def load_glove_embeddings():
 
 def lstm_cell(dropout_keep_prob):
     lstmCell = tf.contrib.rnn.BasicLSTMCell(13)
-    lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell, output_keep_prob=dropout_keep_prob)
+    lstmCell = tf.contrib.rnn.DropoutWrapper(cell=lstmCell)#, output_keep_prob=dropout_keep_prob)
     return lstmCell
 
 
@@ -107,9 +107,9 @@ def define_graph(glove_embeddings_arr):
     input_data = tf.placeholder(tf.int32, [batch_size, 40]) #yep
     data = tf.Variable(tf.zeros([batch_size, 40, 50]), dtype=tf.float32)
     data = tf.nn.embedding_lookup(glove_embeddings_arr, input_data)
-    stacked_lstm = tf.contrib.rnn.MultiRNNCell(
-        [lstm_cell(dropout_keep_prob) for _ in range(3)])
-    value, state = tf.nn.dynamic_rnn(stacked_lstm, data, dtype=tf.float32)
+    #stacked_lstm = tf.contrib.rnn.MultiRNNCell(
+    #    [lstm_cell(dropout_keep_prob) for _ in range(3)])
+    value, state = tf.nn.dynamic_rnn(lstm_cell(dropout_keep_prob), data, dtype=tf.float32)
 
 
     weight = tf.Variable(tf.truncated_normal([13, 2]))
